@@ -11,6 +11,7 @@ const {
   get,
   has,
   set,
+  insert,
   remove,
   typeOf,
   toArrayIndex,
@@ -109,7 +110,7 @@ test('has reports existence for both objects and arrays', () => {
   assert.equal(has(doc, ''), true);
 });
 
-test('set writes objects and follows RFC 6902 add semantics for arrays', () => {
+test('set writes objects and overwrites existing array slots', () => {
   const doc = { a: { b: 1 }, list: [10, 20] };
   set(doc, '/a/b', 2);
   assert.deepEqual(doc.a, { b: 2 });
@@ -118,13 +119,39 @@ test('set writes objects and follows RFC 6902 add semantics for arrays', () => {
   assert.deepEqual(doc.a.new, { deep: true });
 });
 
-test('set inserts at an array index, shifting later items right', () => {
+test('set overwrites an array element without shifting neighbours', () => {
   const doc = { list: [10, 20] };
   set(doc, '/list/1', 99);
-  assert.deepEqual(doc.list, [10, 99, 20], 'RFC 6902 add inserts, it does not overwrite');
+  assert.deepEqual(doc.list, [10, 99], 'replace overwrites in place');
 
   set(doc, '/list/0', 5);
+  assert.deepEqual(doc.list, [5, 99], 'index 0 overwrites the head');
+});
+
+test('insert splices at an array index, shifting later items right', () => {
+  const doc = { list: [10, 20] };
+  insert(doc, '/list/1', 99);
+  assert.deepEqual(doc.list, [10, 99, 20], 'RFC 6902 add inserts, it does not overwrite');
+
+  insert(doc, '/list/0', 5);
   assert.deepEqual(doc.list, [5, 10, 99, 20], 'index 0 prepends');
+
+  insert(doc, '/list/-', 7);
+  assert.deepEqual(doc.list, [5, 10, 99, 20, 7], '"-" appends');
+
+  insert(doc, '/list/3', 42);
+  assert.deepEqual(doc.list, [5, 10, 99, 42, 20, 7], 'an interior index splices');
+});
+
+test('insert assigns object keys and rejects out-of-range array indexes', () => {
+  const doc = { obj: { a: 1 }, list: [1] };
+  insert(doc, '/obj/a', 2);
+  assert.deepEqual(doc.obj, { a: 2 }, 'an existing key is overwritten');
+  insert(doc, '/obj/b', 3);
+  assert.deepEqual(doc.obj, { a: 2, b: 3 }, 'a new key is created');
+
+  assert.throws(() => insert(doc, '/list/5', 0), /out of range/);
+  assert.throws(() => insert({ n: 1 }, '/n/child', 0), /not a container/);
 });
 
 test('set appends when the index equals the length or the token is -', () => {

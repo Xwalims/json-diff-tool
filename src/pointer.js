@@ -204,13 +204,15 @@ function resolveParent(doc, pointer, index = 0) {
 /**
  * Write a value at a pointer, mutating the document in place.
  *
- * When the parent is an array, a numeric token inserts at that position
- * (shifting later elements right) and the token `-` appends, matching
- * RFC 6902 `add` semantics.
+ * An existing location is overwritten. The token `-` appends to an array, and
+ * an index equal to the array length appends as well. Writing to an array
+ * index that already exists overwrites that slot instead of shifting the
+ * remaining elements, which is what `replace` requires; use {@link insert} for
+ * RFC 6902 `add` semantics on arrays.
  *
  * @param {*} doc Document to mutate.
  * @param {string} pointer JSON Pointer.
- * @param {*} value Value to store (deep-copied before insertion).
+ * @param {*} value Value to store (deep-copied before assignment).
  * @returns {*} The document root after the assignment. This is `doc` itself
  *   unless `pointer` was `''`, in which case the assigned value is returned.
  * @throws {SyntaxError} If the pointer is malformed.
@@ -243,8 +245,52 @@ function set(doc, pointer, value) {
       parent.push(clone(value));
       return doc;
     }
+    parent[index] = clone(value);
+    return doc;
+  }
+  parent[token] = clone(value);
+  return doc;
+}
+
+/**
+ * Insert a value at a pointer, mutating the document in place.
+ *
+ * This is the RFC 6902 `add` counterpart to {@link set}: when the parent is an
+ * array, the new value is spliced in at that position and every later element
+ * shifts right. Object keys are assigned, since a key is either present or
+ * not. The token `-` appends to an array.
+ *
+ * @param {*} doc Document to mutate.
+ * @param {string} pointer JSON Pointer.
+ * @param {*} value Value to insert (deep-copied before insertion).
+ * @returns {*} The document root after the insertion (`doc`).
+ * @throws {SyntaxError} If the pointer is malformed or is `''`.
+ * @throws {Error} If a parent segment is missing or an array index is beyond the end.
+ */
+function insert(doc, pointer, value) {
+  const tokens = decodePointer(pointer);
+  if (tokens.length === 0) return clone(value);
+
+  const { parent, token } = resolveParent(doc, pointer);
+  if (Array.isArray(parent)) {
+    if (token === '-') {
+      parent.push(clone(value));
+      return doc;
+    }
+    const index = toArrayIndex(token);
+    if (index === null || index > parent.length) {
+      throw new Error(
+        `cannot insert at ${JSON.stringify(pointer)}: array index ${JSON.stringify(token)} ` +
+          `is out of range (length ${parent.length})`
+      );
+    }
     parent.splice(index, 0, clone(value));
     return doc;
+  }
+  if (typeOf(parent) !== 'object') {
+    throw new Error(
+      `cannot insert at ${JSON.stringify(pointer)}: parent is ${typeOf(parent)}, not a container`
+    );
   }
   parent[token] = clone(value);
   return doc;
@@ -310,6 +356,7 @@ module.exports = {
   get,
   has,
   set,
+  insert,
   remove,
   resolveParent,
   clone,

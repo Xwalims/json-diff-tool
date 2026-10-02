@@ -4,6 +4,35 @@ Semantic diff and merge for JSON documents. Produces RFC 6902-style operations
 addressed by JSON Pointer (RFC 6901), and can apply a patch back to a document.
 Zero runtime dependencies.
 
+<!-- hero -->
+
+[![CI](https://github.com/json-diff-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/json-diff-tool/actions/workflows/ci.yml)
+![node 20+](https://img.shields.io/badge/node-20+-brightgreen)
+![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![dependencies](https://img.shields.io/badge/dependencies-none-2f6f4f)
+
+## Contents
+
+- [What it is](#what-it-is)
+- [Why](#why)
+- [Install](#install)
+- [Usage](#usage)
+  - [Array strategies](#array-strategies)
+  - [Machine output and patch files](#machine-output-and-patch-files)
+  - [Merging](#merging)
+- [Operation semantics](#operation-semantics)
+- [CLI flags](#cli-flags)
+- [Library API](#library-api)
+  - [`diff(a, b, options?)`](#diffa-b-options)
+  - [`applyPatch(doc, ops, options?)`](#applypatchdoc-ops-options)
+  - [`merge(base, incoming, options?)`](#mergebase-incoming-options)
+  - [`formatOps(ops, options?)`](#formatopsops-options)
+  - [`pointer`](#pointer)
+- [Running tests](#running-tests)
+- [License](#license)
+
+<!-- /hero -->
+
 ## What it is
 
 - `diff(a, b)` returns an ordered array of `add`, `remove` and `replace`

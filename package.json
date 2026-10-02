@@ -1,0 +1,34 @@
+{
+  "name": "json-diff-tool",
+  "version": "0.1.0",
+  "description": "Semantic diff and merge for JSON documents, producing RFC 6902-style operations with JSON Pointer paths.",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "bin": {
+    "json-diff": "bin/json-diff.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "json",
+    "diff",
+    "merge",
+    "json-patch",
+    "rfc6901",
+    "rfc6902",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "private": false,
+  "dependencies": {}
+}

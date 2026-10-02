@@ -14,21 +14,12 @@ Zero runtime dependencies.
 ## Contents
 
 - [What it is](#what-it-is)
-- [Why](#why)
-- [Install](#install)
 - [Usage](#usage)
   - [Array strategies](#array-strategies)
   - [Machine output and patch files](#machine-output-and-patch-files)
   - [Merging](#merging)
 - [Operation semantics](#operation-semantics)
-- [CLI flags](#cli-flags)
-- [Library API](#library-api)
   - [`diff(a, b, options?)`](#diffa-b-options)
-  - [`applyPatch(doc, ops, options?)`](#applypatchdoc-ops-options)
-  - [`merge(base, incoming, options?)`](#mergebase-incoming-options)
-  - [`formatOps(ops, options?)`](#formatopsops-options)
-  - [`pointer`](#pointer)
-- [Running tests](#running-tests)
 - [License](#license)
 
 <!-- /hero -->

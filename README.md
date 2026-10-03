@@ -20,6 +20,7 @@ Zero runtime dependencies.
   - [Merging](#merging)
 - [Operation semantics](#operation-semantics)
   - [`diff(a, b, options?)`](#diffa-b-options)
+- [A note on `__proto__`](#a-note-on-__proto__)
 - [License](#license)
 
 <!-- /hero -->
@@ -296,7 +297,41 @@ are also exported.
 
 The RFC 6901 helpers the rest is built on: `get`, `has`, `set` (overwrite),
 `insert` (splice, for `add`), `remove`, `encodePointer`, `decodePointer`,
-`escapeToken`, `unescapeToken` and `toArrayIndex`.
+`escapeToken`, `unescapeToken` and `toArrayIndex`. `assignKey` is the write
+helper those use; see the note below.
+
+## A note on `__proto__`
+
+`JSON.parse('{"__proto__": {...}}')` stores a key literally named
+`__proto__` as an ordinary own data property, so a parsed document can
+legitimately contain one. JavaScript's `=` operator does not agree:
+`obj[key] = value` with `key === '__proto__'` invokes the inherited accessor
+on `Object.prototype` and *retargets the prototype* instead of creating a
+property. The value disappears from the document while the object still
+appears to work, which is the worst failure mode there is:
+
+```js
+const after = JSON.parse('{"__proto__":{"role":"admin"}}');   // a key really exists
+const out = applyPatch({}, diff({}, after));
+
+JSON.stringify(out);   // '{"__proto__":{"role":"admin"}}'  <- preserved
+out.role;              // undefined                       <- a property, not inherited
+Object.keys(out);      // ['__proto__']
+```
+
+The same two lines with a hand-rolled `out['__proto__'] = after.__proto__`
+instead of `applyPatch` produce `'{}'`, `[]` and an inherited `role` — the key
+is gone from the document while the object still looks right. Note also that
+the input has to come from `JSON.parse`: an object literal
+`{ __proto__: { role: 'admin' } }` sets the prototype and never creates a key,
+so it cannot express this document at all.
+
+Every write path in this library goes through `assignKey`, which defines the
+property when the token is `__proto__` and assigns normally otherwise, so the
+result is byte-identical to what `JSON.parse` would have produced. Reads were
+already safe: `get` and `has` use `hasOwnProperty` and never walk the
+prototype chain. `test/proto-key.test.js` pins the behaviour, including that
+`diff` + `applyPatch` round-trips a document that gains or loses such a key.
 
 ## Running tests
 
@@ -312,9 +347,9 @@ just the library behind it.
 Expected output:
 
 ```text
-ℹ tests 140
+ℹ tests 154
 ℹ suites 0
-ℹ pass 140
+ℹ pass 154
 ℹ fail 0
 ```
 

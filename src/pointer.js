@@ -16,6 +16,36 @@ const MISSING = Symbol('pointer.missing');
 const ARRAY_INDEX_RE = /^(?:0|[1-9][0-9]*)$/;
 
 /**
+ * Assign a reference token on an object without ever invoking the
+ * `Object.prototype.__proto__` accessor.
+ *
+ * `target[key] = value` is not the same thing as "create a property named
+ * `key`" for every possible key: `__proto__` is an accessor inherited from
+ * `Object.prototype`, so plain assignment retargets the prototype and
+ * silently drops the value out of the document. `JSON.parse` has no such
+ * problem — `JSON.parse('{"__proto__":1}')` produces an own data property —
+ * so a pointer implementation that writes with `=` loses data that the parsed
+ * document actually contained.
+ *
+ * @param {object} target Object to write to.
+ * @param {string} key Reference token.
+ * @param {*} value Value to store.
+ * @returns {void}
+ */
+function assignKey(target, key, value) {
+  if (key === '__proto__') {
+    Object.defineProperty(target, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    return;
+  }
+  target[key] = value;
+}
+
+/**
  * Escape a single reference token for use inside a JSON Pointer.
  *
  * `~` becomes `~0` and `/` becomes `~1`. The order matters: escaping `~`
@@ -248,7 +278,7 @@ function set(doc, pointer, value) {
     parent[index] = clone(value);
     return doc;
   }
-  parent[token] = clone(value);
+  assignKey(parent, token, clone(value));
   return doc;
 }
 
@@ -292,7 +322,7 @@ function insert(doc, pointer, value) {
       `cannot insert at ${JSON.stringify(pointer)}: parent is ${typeOf(parent)}, not a container`
     );
   }
-  parent[token] = clone(value);
+  assignKey(parent, token, clone(value));
   return doc;
 }
 
@@ -353,6 +383,7 @@ module.exports = {
   decodePointer,
   typeOf,
   toArrayIndex,
+  assignKey,
   get,
   has,
   set,

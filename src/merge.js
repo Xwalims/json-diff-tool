@@ -1,6 +1,6 @@
 'use strict';
 
-const { typeOf } = require('./pointer.js');
+const { typeOf, assignKey } = require('./pointer.js');
 
 /**
  * Deep merge of JSON documents.
@@ -159,7 +159,7 @@ function merge(base, incoming, options = {}) {
         if (Object.prototype.hasOwnProperty.call(result, key)) {
           result[key] = mergeValue(result[key], incomingValue[key], childPath);
         } else {
-          result[key] = structuredClone(incomingValue[key]);
+          assignKey(result, key, structuredClone(incomingValue[key]));
         }
       }
       return result;

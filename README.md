@@ -58,7 +58,7 @@ tested here rather than left to the caller.
 No dependencies, so a clone and a Node.js 20 or newer is all that is needed:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Xwalims/json-diff-tool.git
 cd json-diff-tool
 node --test        # verify it works
 ```

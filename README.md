@@ -6,7 +6,7 @@ Zero runtime dependencies.
 
 <!-- hero -->
 
-[![CI](https://github.com/json-diff-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/json-diff-tool/actions/workflows/ci.yml)
+[![CI](https://github.com/Xwalims/json-diff-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/Xwalims/json-diff-tool/actions/workflows/ci.yml)
 ![node 20+](https://img.shields.io/badge/node-20+-brightgreen)
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![dependencies](https://img.shields.io/badge/dependencies-none-2f6f4f)
@@ -69,11 +69,13 @@ To use the CLI without installing:
 node bin/json-diff.js A.json B.json
 ```
 
-Or install it onto your `PATH`:
+Or link it onto your `PATH` from a checkout. This package is **not published to
+npm** — the name is unregistered, so `npm install -g json-diff-tool` fails:
 
 ```bash
-npm install -g json-diff-tool
-json-diff A.json B.json
+git clone https://github.com/Xwalims/json-diff-tool.git
+cd json-diff-tool
+npm link          # provides the `json-diff` command
 ```
 
 ## Usage

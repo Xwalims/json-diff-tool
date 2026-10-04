@@ -20,6 +20,17 @@ const { applyPatch } = require('../src/apply.js');
  * prototype mutation, and that a diff/apply round-trip stays faithful.
  */
 
+/**
+ * Read the value of an OWN `__proto__` data property.
+ *
+ * `object.__proto__` would work here, because an own property shadows the
+ * inherited accessor, but going through the descriptor states the intent and
+ * cannot silently change meaning if the shadowing ever stops holding.
+ */
+function ownProtoValue(object) {
+  return Object.getOwnPropertyDescriptor(object, '__proto__').value;
+}
+
 /** Assert that `object` carries an own `__proto__` data property. */
 function assertOwnProtoKey(object, expected) {
   assert.equal(
@@ -27,11 +38,12 @@ function assertOwnProtoKey(object, expected) {
     true,
     'the literal "__proto__" key must survive as an own property'
   );
-  assert.deepEqual(
-    { __proto__: object.__proto__ },
-    { __proto__: expected },
-    'the own "__proto__" property must hold the written value'
-  );
+  // Compare the two values directly. Wrapping them in `{ __proto__: v }` would
+  // NOT work: in an object literal `__proto__` is a prototype setter, never an
+  // own-property definition, so that expression builds an object with zero own
+  // keys whose prototype is `v`. Comparing those compares two empty objects
+  // and passes whatever the values were — the assertion checked nothing.
+  assert.deepEqual(ownProtoValue(object), expected, 'the own "__proto__" property must hold the written value');
 }
 
 test('set stores a literal __proto__ key as an own property', () => {
@@ -104,7 +116,9 @@ test('a written __proto__ key is an ordinary data property', () => {
   // And a second write through the pointer must replace the value, which only
   // holds for a writable property.
   set(written, '/__proto__', { role: 'user' });
-  assert.deepEqual({ __proto__: written.__proto__ }, { __proto__: { role: 'user' } });
+  // Direct value comparison — see assertOwnProtoKey for why `{ __proto__: v }`
+  // would be a prototype mutation that passes unconditionally.
+  assert.deepEqual(ownProtoValue(written), { role: 'user' });
 });
 
 test('merge carries a __proto__ key through instead of dropping it', () => {

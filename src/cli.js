@@ -7,6 +7,7 @@ const { diff } = require('./diff.js');
 const { applyPatch } = require('./apply.js');
 const { merge } = require('./merge.js');
 const { formatOps, formatJson, formatSummary } = require('./format.js');
+const { parseExact, stringifyExact } = require('./json-number.js');
 
 /**
  * Command line interface for json-diff.
@@ -99,7 +100,11 @@ async function loadDocument(source, label, stdin = process.stdin) {
   }
 
   try {
-    return JSON.parse(text);
+    // parseExact, not JSON.parse: the two documents may differ only in an
+    // integer above 2^53, and JSON.parse rounds both onto the same double.
+    // The diff then reports them identical and the exit code says "no
+    // differences" for two documents that are not the same.
+    return parseExact(text);
   } catch (error) {
     throw new UsageError(`${label} ${JSON.stringify(source)} is not valid JSON: ${error.message}`);
   }
@@ -288,7 +293,10 @@ async function run(argv, io = {}) {
     // Validate the policies before merging so bad input fails loudly.
     try {
       const merged = merge(a, b, { arrayPolicy: options.mergeArray, nullPolicy: options.mergeNull });
-      const text = `${JSON.stringify(merged, null, 2)}\n`;
+      // stringifyExact: the merge result can hold an exact integer, and
+      // JSON.stringify throws on a BigInt -- so `--merge` would fail on a
+      // document it had read correctly.
+      const text = `${stringifyExact(merged, 2)}\n`;
       if (options.out) writeFileOrFail(options.out, text);
       if (!options.quiet) stdout.write(text);
       return EXIT.SAME;

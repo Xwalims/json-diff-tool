@@ -1,5 +1,7 @@
 'use strict';
 
+const { stringifyExact } = require('./json-number.js');
+
 /**
  * Human-readable and machine rendering of diff operations.
  *
@@ -57,7 +59,11 @@ function formatValue(value, maxLength) {
   if (typeof value === 'string') {
     text = JSON.stringify(value);
   } else {
-    text = JSON.stringify(value) ?? String(value);
+    // stringifyExact, not JSON.stringify: an exact integer is a BigInt and
+    // plain JSON.stringify throws on it. Printing `9007199254740993` rather
+    // than crashing (or, worse, printing the rounded `9007199254740992` the
+    // number is actually stored as) is the whole point.
+    text = stringifyExact(value) ?? String(value);
   }
   if (maxLength > 0 && text.length > maxLength) {
     const keep = Math.max(1, maxLength - 3);
@@ -202,7 +208,10 @@ function formatJson(operations, options = {}) {
     );
   }
   const { indent = DEFAULT_FORMAT_OPTIONS.indent } = options;
-  return `${JSON.stringify(operations, null, indent)}\n`;
+  // `--json` output is re-read by `applyPatch`, so it has to survive a
+  // document that contains exact integers. stringifyExact keeps the BigInt
+  // literal intact instead of throwing on the way out.
+  return `${stringifyExact(operations, indent)}\n`;
 }
 
 /**

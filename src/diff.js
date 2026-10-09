@@ -68,6 +68,26 @@ function resolveOptions(options = {}) {
  *
  * Object key order is irrelevant, so `{a:1,b:2}` equals `{b:2,a:1}`.
  *
+ * NUMBERS. This is where a diff tool can be silently wrong. Two numbers are
+ * equal when they are the same value, and for integers outside the IEEE-754
+ * safe range that needs exact arithmetic rather than `===`:
+ *
+ *     parseExact('{"n":9007199254740993}')  // n === 9007199254740993n
+ *     parseExact('{"n":9007199254740992}')  // n === 9007199254740992n
+ *
+ * Both are BigInt because `parseExact` keeps them exact, and `===` compares
+ * BigInts by value, so they differ and a `replace` is emitted. Before that,
+ * both had collapsed onto the same double and `a === b` reported the two
+ * documents as identical. The comparison is only reached when the kinds
+ * already match, so it cannot confuse a BigInt with a number.
+ *
+ * `===` is kept first and `==` is never used on purpose: `0 == 0n` is `true`
+ * and `0 === 0n` is `false`, so a loose comparison would call an integer
+ * document and a float document the same. A JSON number is one kind of thing
+ * however it is spelled, but 0 and 0.0 have different literals and
+ * distinguishing them here is consistent with treating 1 and 1.0 as the same
+ * value (both are exactly 1).
+ *
  * @param {*} a First value.
  * @param {*} b Second value.
  * @returns {boolean} `true` when the values are structurally identical.
@@ -76,6 +96,8 @@ function deepEqual(a, b) {
   if (a === b) return true;
   const kindA = typeOf(a);
   if (kindA !== typeOf(b)) return false;
+  // Two BigInts: `===` already said no, and BigInt comparison is exact.
+  if (kindA === 'bigint') return false;
   if (kindA === 'array') {
     if (a.length !== b.length) return false;
     return a.every((item, index) => deepEqual(item, b[index]));

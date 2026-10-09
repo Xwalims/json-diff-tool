@@ -20,6 +20,7 @@ Zero runtime dependencies.
   - [Merging](#merging)
 - [Operation semantics](#operation-semantics)
   - [`diff(a, b, options?)`](#diffa-b-options)
+- [A note on numbers larger than 2^53](#a-note-on-numbers-larger-than-253)
 - [A note on `__proto__`](#a-note-on-__proto__)
 - [License](#license)
 
@@ -299,6 +300,81 @@ The RFC 6901 helpers the rest is built on: `get`, `has`, `set` (overwrite),
 `insert` (splice, for `add`), `remove`, `encodePointer`, `decodePointer`,
 `escapeToken`, `unescapeToken` and `toArrayIndex`. `assignKey` is the write
 helper those use; see the note below.
+
+## A note on numbers larger than 2^53
+
+`JSON.parse` sends every number through an IEEE-754 double, so it cannot hold
+an integer above 2^53-1. Two different documents become one value:
+
+```js
+JSON.parse('{"id":9007199254740993}').id === JSON.parse('{"id":9007199254740992}').id
+// true   -- different IDs, one value
+```
+
+For a diff tool that is the worst failure available: `diff` returns no
+operations, the CLI prints `no differences` and exits **0**, so any pipeline
+gating on that exit code ships the wrong data. The CLI reads with `parseExact`
+and writes with `stringifyExact`, which keep such integers exact:
+
+```console
+$ node bin/json-diff.js a.json b.json
+changed (1):
+  ~ /id  9007199254740993 -> 9007199254740992
+
+1 operation: 0 added, 1 changed, 0 removed
+$ echo $?
+1
+```
+
+Library callers get the same two functions, alongside `diff` and `merge`:
+
+```js
+const { parseExact, stringifyExact } = require('json-diff-tool');
+
+const a = parseExact('{"id":9007199254740993}');
+typeof a.id;            // 'bigint'
+stringifyExact(a);      // '{"id":9007199254740993}'   <- exact, not rounded
+```
+
+**Only integers are affected.** A number with a fraction or an exponent — `1.5`,
+`1e17` — is a real floating-point value and is left alone. Integers inside the
+safe range stay plain `number`, so `typeof`, arithmetic and every existing
+document behave exactly as before; `stringifyExact` is byte-identical to
+`JSON.stringify` for a document that contains no large integer, and returns it
+through the builtin unchanged. This widens what the tool can see. It does not
+change what it reports for ordinary input.
+
+Two things to know before building on it:
+
+- An exact integer is a **`bigint`**, so `===` against a number is false even
+  for equal values. `BigInt(5) === 5` is `false`; compare with `==`, coerce
+  first, or keep the value as a string. `structuredClone` preserves `bigint`,
+  so the values survive the deep copies this library makes internally.
+- Feeding a `bigint` to plain `JSON.stringify` **throws** `TypeError`. Use
+  `stringifyExact` for any value that came out of `parseExact`.
+
+A `bigint` is written as a bare literal, not a quoted string. That is not an
+accident of formatting: a `JSON.stringify` replacer returns a *value*, so
+`typeof v === 'bigint' ? String(v) : v` produces `{"id":"9007…"}` — a string.
+`JSON.rawJSON` can emit a raw token but is Node 22+ and does not survive
+`structuredClone`, so the emitter is written by hand and delegates all string
+escaping back to `JSON.stringify`.
+
+The exact-number behaviour is checked against **Python's `json` module** as an
+external oracle — it keeps integers exact, so it can always tell two literals
+apart — over 313 pairs of large-integer neighbours:
+
+```console
+$ python3 scripts/cross-check-numbers.py portable
+checked 313 pairs against python's json; 0 failures
+```
+
+`portable` is worth running specifically: the fast path needs `JSON.parse`'s
+reviver context, which the declared Node 20 floor does not provide, so on the
+oldest supported runtime a *different* parser runs. Both paths are checked.
+`scripts/verify-exact-number-regression.sh` reverts each half of the fix in turn
+and requires the suite to go red, failing loudly if a revert did not actually
+change the code.
 
 ## A note on `__proto__`
 
